@@ -102,6 +102,7 @@ class AdvantageEstimator(str, Enum):
     OPO = "opo"
     GRPO_PASSK = "grpo_passk"
     GPG = "gpg"
+    PRM = "prm"
 
 
 ADV_ESTIMATOR_REGISTRY: dict[str, Any] = {}
@@ -256,6 +257,40 @@ def compute_gae_advantage_return(
         advantages = verl_F.masked_whiten(advantages, response_mask)
     return advantages, returns
 
+def left_fill_by_next_nonzero(x: torch.Tensor):
+    # x: (N, M) 2d tensor
+    rev = torch.flip(x, dims=[1])                      # 反转
+
+    M = rev.size(1)
+    idx = torch.arange(M, device=x.device).expand_as(rev)
+
+    # 非零位置保留索引，否则置 -1
+    last_idx = torch.where(rev != 0, idx, torch.full_like(idx, -1))
+
+    # 用 cummax 来“携带”最近非 -1 的索引
+    last_idx, _ = torch.cummax(last_idx, dim=1)
+
+    # 根据索引 gather 非零值
+    filled_rev = torch.where(
+        last_idx >= 0,
+        rev.gather(1, last_idx.clamp_min(0)),
+        torch.zeros_like(rev)
+    )
+
+    return torch.flip(filled_rev, dims=[1])
+
+@register_adv_est(AdvantageEstimator.PRM)  # or simply: @register_adv_est("grpo_passk")
+def compute_prm_outcome_advantage(
+    token_level_rewards: torch.Tensor,
+    response_mask: torch.Tensor,
+    index: np.ndarray,
+    config: Optional[AlgoConfig] = None,
+    **kwargs,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    # find all non-zero indices in token_level_rewards
+    token_level_rewards = token_level_rewards * response_mask
+    token_level_rewards = left_fill_by_next_nonzero(token_level_rewards)
+    return token_level_rewards, token_level_rewards
 
 # NOTE(sgm): this implementation only consider outcome supervision, where the reward is a scalar.
 @register_adv_est(AdvantageEstimator.GRPO)  # or simply: @register_adv_est("grpo")

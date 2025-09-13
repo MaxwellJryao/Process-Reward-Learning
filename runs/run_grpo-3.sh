@@ -1,20 +1,22 @@
 set -x
 
+export CUDA_VISIBLE_DEVICES=1,2,3,4,5,6,7,8
+
 numina_train_path=data/numina_math_15_all/train.parquet
 math_test_path=data/math500/test.parquet
 
 train_files="['$numina_train_path']"
 test_files="['$math_test_path']"
 
-prm_eta=1
-prm_step_len=256
+prm_eta=100
+prm_step_len=1
 model=Qwen/Qwen2.5-Math-1.5B
 n=1
 
-exp_name=Qwen2.5-Math-1.5B-numina-grpo-n$n-prm-eta$prm_eta
+exp_name=Qwen2.5-Math-1.5B-numina-prm-n$n-prm-eta$prm_eta-stepLen$prm_step_len
 
 python3 -m verl.trainer.main_ppo \
-    algorithm.adv_estimator=grpo \
+    algorithm.adv_estimator=prm \
     data.train_files="$train_files" \
     data.val_files="$test_files" \
     data.train_batch_size=128 \
@@ -48,8 +50,8 @@ python3 -m verl.trainer.main_ppo \
     trainer.logger='["console","wandb"]' \
     trainer.project_name='prm' \
     trainer.experiment_name=$exp_name \
-    trainer.n_gpus_per_node=4 \
+    trainer.n_gpus_per_node=8 \
     trainer.nnodes=1 \
-    trainer.save_freq=50 \
+    trainer.save_freq=25 \
     trainer.test_freq=5 \
     trainer.total_epochs=1 $@

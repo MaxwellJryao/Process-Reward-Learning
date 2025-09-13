@@ -1078,7 +1078,7 @@ class RayPPOTrainer:
                         if self.config.reward_model.launch_reward_fn_async:
                             reward_tensor, reward_extra_infos_dict = ray.get(future_reward)
 
-                        if self.config.prm.eta > 0:
+                        if self.config.algorithm.adv_estimator == AdvantageEstimator.PRM and self.config.prm.eta > 0:
                             log_prob_diff = old_log_prob.batch['old_log_probs'] - ref_log_prob.batch['ref_log_prob']
                             log_prob_diff = log_prob_diff * batch.batch['response_mask']
                             # 计算从当前位置到结束的log_prob_diff的累积和
@@ -1095,10 +1095,10 @@ class RayPPOTrainer:
                                 step_mask = (torch.arange(1, seq_len + 1) % step_len == 0).repeat(bsz, 1) * batch.batch['response_mask']
                                 step_mask[torch.arange(bsz), batch.batch['response_mask'].sum(dim=-1)-1] = 1
                                 reward_tensor = reward_tensor * step_mask
-                                reward_tensor = reward_tensor / step_mask.sum(dim=-1,keepdim=True)
-                            else:
-                                # normalize reward
-                                reward_tensor = reward_tensor / batch.batch['response_mask'].sum(dim=-1,keepdim=True)
+                                # reward_tensor = reward_tensor / step_mask.sum(dim=-1,keepdim=True)
+                            # else:
+                            #     # normalize reward
+                            #     reward_tensor = reward_tensor / batch.batch['response_mask'].sum(dim=-1,keepdim=True)
                             reward_tensor = reward_tensor.detach()
 
                         batch.batch["token_level_scores"] = reward_tensor
