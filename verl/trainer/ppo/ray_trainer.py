@@ -1077,15 +1077,54 @@ class RayPPOTrainer:
                         reward_extra_infos_dict: dict[str, list]
                         if self.config.reward_model.launch_reward_fn_async:
                             reward_tensor, reward_extra_infos_dict = ray.get(future_reward)
+                        raw_reward_tensor = reward_tensor.clone()
 
                         if self.config.algorithm.adv_estimator == AdvantageEstimator.PRM and self.config.prm.eta > 0:
+                            if self.config.actor_rollout_ref.rollout.n > 1:
+                                # grpo + prm: use the final reward to calculate the adv, then add process reward
+                                scores = reward_tensor.sum(dim=-1)
+                                index = batch.non_tensor_batch['uid']
+                                id2score = defaultdict(list)
+                                id2mean = {}
+                                id2std = {}
+
+                                with torch.no_grad():
+                                    bsz = scores.shape[0]
+                                    for i in range(bsz):
+                                        id2score[index[i]].append(scores[i])
+                                    for idx in id2score:
+                                        if len(id2score[idx]) == 1:
+                                            id2mean[idx] = torch.tensor(0.0)
+                                            id2std[idx] = torch.tensor(1.0)
+                                        elif len(id2score[idx]) > 1:
+                                            scores_tensor = torch.stack(id2score[idx])
+                                            id2mean[idx] = torch.mean(scores_tensor)
+                                            id2std[idx] = torch.std(scores_tensor)
+                                        else:
+                                            raise ValueError(f"no score in prompt index: {idx}")
+                                    for i in range(bsz):
+                                        if self.config.algorithm.get("norm_adv_by_std_in_grpo", True):
+                                            scores[i] = (scores[i] - id2mean[index[i]]) / (id2std[index[i]] + 1e-6)
+                                        else:
+                                            scores[i] = scores[i] - id2mean[index[i]]
+                                    response_mask = batch.batch['response_mask']
+                                    idx = response_mask.size(1) - 1 - response_mask.flip(1).argmax(dim=1)
+
+                                    # 如果整行没有1，argmax会返回0，这里要修正掉
+                                    has_ones = response_mask.sum(dim=1) > 0
+                                    idx = idx * has_ones  # 没有1的行就变成0索引
+
+                                    # 构造新的 mask
+                                    new_mask = torch.zeros_like(response_mask, dtype=response_mask.dtype)
+                                    new_mask[torch.arange(response_mask.size(0)), idx] = has_ones.to(response_mask.dtype)
+                                    reward_tensor = scores.unsqueeze(-1) * new_mask
                             log_prob_diff = old_log_prob.batch['old_log_probs'] - ref_log_prob.batch['ref_log_prob']
                             log_prob_diff = log_prob_diff * batch.batch['response_mask']
                             # 计算从当前位置到结束的log_prob_diff的累积和
                             log_prob_diff_cum = log_prob_diff.cumsum(dim=-1)
                             log_prob_diff_cum = log_prob_diff.sum(dim=-1,keepdim=True) - log_prob_diff_cum + log_prob_diff
                             # log_prob_diff_cum = torch.sigmoid(log_prob_diff_cum)
-                            raw_reward_tensor = reward_tensor.clone()
+                            
                             reward_tensor = reward_tensor.sum(dim=-1,keepdim=True) * batch.batch['response_mask']
                             reward_tensor = reward_tensor - log_prob_diff_cum / self.config.prm.eta
                             
