@@ -1080,7 +1080,7 @@ class RayPPOTrainer:
                         raw_reward_tensor = reward_tensor.clone()
 
                         if self.config.algorithm.adv_estimator == AdvantageEstimator.PRM and self.config.prm.eta > 0:
-                            if self.config.actor_rollout_ref.rollout.n > 1:
+                            if self.config.actor_rollout_ref.rollout.n > 1 and self.config.prm.adv == "orm":
                                 # grpo + prm: use the final reward to calculate the adv, then add process reward
                                 scores = reward_tensor.sum(dim=-1)
                                 index = batch.non_tensor_batch['uid']
@@ -1128,7 +1128,7 @@ class RayPPOTrainer:
                             reward_tensor = reward_tensor.sum(dim=-1,keepdim=True) * batch.batch['response_mask']
                             reward_tensor = reward_tensor - log_prob_diff_cum / self.config.prm.eta
                             
-                            if self.config.prm.step_len > 0:
+                            if self.config.prm.step_len > 0 and self.config.prm.adv == "orm":
                                 step_len = self.config.prm.step_len
                                 bsz, seq_len = batch.batch['response_mask'].shape
                                 step_mask = (torch.arange(1, seq_len + 1) % step_len == 0).repeat(bsz, 1) * batch.batch['response_mask']
@@ -1162,7 +1162,7 @@ class RayPPOTrainer:
 
                         batch = compute_advantage(
                             batch,
-                            adv_estimator=self.config.algorithm.adv_estimator,
+                            adv_estimator="prm" if (self.config.algorithm.adv_estimator == AdvantageEstimator.PRM and self.config.prm.adv == "orm") else self.config.algorithm.adv_estimator,
                             gamma=self.config.algorithm.gamma,
                             lam=self.config.algorithm.lam,
                             num_repeat=self.config.actor_rollout_ref.rollout.n,

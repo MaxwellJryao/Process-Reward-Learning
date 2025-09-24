@@ -1,5 +1,6 @@
 *.bk
 *.whl
+eval/result
 
 **/*.pt
 **/checkpoints

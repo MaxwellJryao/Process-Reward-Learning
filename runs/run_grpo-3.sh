@@ -1,6 +1,6 @@
 set -x
 
-export CUDA_VISIBLE_DEVICES=1,2,3,4,5,6,7,8
+export CUDA_VISIBLE_DEVICES=0,1,2,3
 
 numina_train_path=data/numina_math_15_all/train.parquet
 math_test_path=data/math500/test.parquet
@@ -9,14 +9,16 @@ train_files="['$numina_train_path']"
 test_files="['$math_test_path']"
 
 prm_eta=100
-prm_step_len=1
-model=Qwen/Qwen2.5-Math-1.5B
-n=1
+prm_step_len=64
+model=Qwen/Qwen2.5-Math-7B
+n=5
+adv_estimator=prm
+prm_adv=prm # orm for calculating adv using the final reward, prm for using the process reward
 
-exp_name=Qwen2.5-Math-1.5B-numina-prm-n$n-prm-eta$prm_eta-stepLen$prm_step_len
+exp_name=Qwen2.5-Math-7B-numina-$adv_estimator-prm_adv$prm_adv-n$n-eta$prm_eta-stepLen$prm_step_len
 
 python3 -m verl.trainer.main_ppo \
-    algorithm.adv_estimator=prm \
+    algorithm.adv_estimator=$adv_estimator \
     data.train_files="$train_files" \
     data.val_files="$test_files" \
     data.train_batch_size=128 \
@@ -36,22 +38,23 @@ python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.model.enable_gradient_checkpointing=True \
     actor_rollout_ref.actor.fsdp_config.param_offload=False \
     actor_rollout_ref.actor.fsdp_config.optimizer_offload=False \
-    actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=16 \
+    actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=32 \
     actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
     actor_rollout_ref.rollout.name=vllm \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.6 \
     actor_rollout_ref.rollout.n=$n \
-    actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=16 \
+    actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=32 \
     actor_rollout_ref.ref.fsdp_config.param_offload=True \
     algorithm.use_kl_in_reward=False \
     +prm.eta=$prm_eta \
     +prm.step_len=$prm_step_len \
+    +prm.adv=$prm_adv \
     trainer.critic_warmup=0 \
     trainer.logger='["console","wandb"]' \
     trainer.project_name='prm' \
     trainer.experiment_name=$exp_name \
-    trainer.n_gpus_per_node=8 \
+    trainer.n_gpus_per_node=4 \
     trainer.nnodes=1 \
-    trainer.save_freq=25 \
+    trainer.save_freq=50 \
     trainer.test_freq=5 \
     trainer.total_epochs=1 $@
