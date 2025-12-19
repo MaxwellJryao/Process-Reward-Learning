@@ -8,14 +8,14 @@ math_test_path=data/math500/test.parquet
 train_files="['$numina_train_path']"
 test_files="['$math_test_path']"
 
-prm_eta=100
-prm_step_len=64
-model=Qwen/Qwen2.5-Math-7B
+prm_eta=200
+prm_step_len=256
+model=meta-llama/Llama-3.2-3B-Instruct
 n=5
-adv_estimator=prm
-prm_adv=prm # orm for calculating adv using the final reward, prm for using the process reward
-
-exp_name=Qwen2.5-Math-7B-numina-$adv_estimator-prm_adv$prm_adv-n$n-eta$prm_eta-stepLen$prm_step_len
+adv_estimator=grpo
+prm_adv=orm # orm for calculating adv using the final reward, prm for using the process reward
+prm_step_split=length # length for fixed length, n for \n, nn for \n\n
+exp_name=Llama-3.2-3B-Instruct-numina-$adv_estimator-prm_adv$prm_adv-n$n-eta$prm_eta-stepLen$prm_step_len-stepSplit-$prm_step_split
 
 python3 -m verl.trainer.main_ppo \
     algorithm.adv_estimator=$adv_estimator \
@@ -48,6 +48,7 @@ python3 -m verl.trainer.main_ppo \
     algorithm.use_kl_in_reward=False \
     +prm.eta=$prm_eta \
     +prm.step_len=$prm_step_len \
+    +prm.step_split=$prm_step_split \
     +prm.adv=$prm_adv \
     trainer.critic_warmup=0 \
     trainer.logger='["console","wandb"]' \
@@ -55,6 +56,6 @@ python3 -m verl.trainer.main_ppo \
     trainer.experiment_name=$exp_name \
     trainer.n_gpus_per_node=4 \
     trainer.nnodes=1 \
-    trainer.save_freq=50 \
+    trainer.save_freq=25 \
     trainer.test_freq=5 \
     trainer.total_epochs=1 $@

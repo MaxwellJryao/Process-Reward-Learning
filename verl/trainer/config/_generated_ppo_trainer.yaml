@@ -514,5 +514,5 @@ global_profiler:
       kw_args: {}
 ray_kwargs:
   ray_init:
-    num_cpus: null
+    num_cpus: 8
   timeline_json_file: null

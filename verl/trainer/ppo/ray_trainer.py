@@ -1123,15 +1123,32 @@ class RayPPOTrainer:
                             # 计算从当前位置到结束的log_prob_diff的累积和
                             log_prob_diff_cum = log_prob_diff.cumsum(dim=-1)
                             log_prob_diff_cum = log_prob_diff.sum(dim=-1,keepdim=True) - log_prob_diff_cum + log_prob_diff
+                            # normalize by response length
+                            # log_prob_diff_cum = log_prob_diff_cum / batch.batch['response_mask'].sum(dim=-1,keepdim=True)
+                            # normalize by sigmoid
                             # log_prob_diff_cum = torch.sigmoid(log_prob_diff_cum)
                             
                             reward_tensor = reward_tensor.sum(dim=-1,keepdim=True) * batch.batch['response_mask']
                             reward_tensor = reward_tensor - log_prob_diff_cum / self.config.prm.eta
                             
-                            if self.config.prm.step_len > 0 and self.config.prm.adv == "orm":
+                            if self.config.prm.step_split == "length" and self.config.prm.step_len > 0 and self.config.prm.adv == "orm":
                                 step_len = self.config.prm.step_len
                                 bsz, seq_len = batch.batch['response_mask'].shape
                                 step_mask = (torch.arange(1, seq_len + 1) % step_len == 0).repeat(bsz, 1) * batch.batch['response_mask']
+                                step_mask[torch.arange(bsz), batch.batch['response_mask'].sum(dim=-1)-1] = 1
+                                reward_tensor = reward_tensor * step_mask
+                                # reward_tensor = reward_tensor / step_mask.sum(dim=-1,keepdim=True)
+                            elif self.config.prm.step_split == 'n' and self.config.prm.adv == "orm":
+                                # step mask is defined by \n
+                                split_id = self.tokenizer.encode('\n')[0]
+                                step_mask = torch.tensor(batch.batch['responses'] == split_id)
+                                step_mask[torch.arange(bsz), batch.batch['response_mask'].sum(dim=-1)-1] = 1
+                                reward_tensor = reward_tensor * step_mask
+                                # reward_tensor = reward_tensor / step_mask.sum(dim=-1,keepdim=True)
+                            elif self.config.prm.step_split == 'nn' and self.config.prm.adv == "orm":
+                                # step mask is defined by \n\n
+                                split_id = self.tokenizer.encode('\n\n')[0]
+                                step_mask = torch.tensor(batch.batch['responses'] == split_id)
                                 step_mask[torch.arange(bsz), batch.batch['response_mask'].sum(dim=-1)-1] = 1
                                 reward_tensor = reward_tensor * step_mask
                                 # reward_tensor = reward_tensor / step_mask.sum(dim=-1,keepdim=True)

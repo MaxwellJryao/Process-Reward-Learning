@@ -69,11 +69,10 @@ for test_dataset in test_datasets:
     avg_acc = np.mean(np.mean(scores, axis=1))
     print(f"Pass Accuracy: {acc}")
     print(f"Average Accuracy: {avg_acc}")
-    res[f'{test_dataset}'] = avg_acc
-    this_res[f'{test_dataset}'] = avg_acc
+    res[f'{test_dataset}'] = [avg_acc, acc]
     # res[f'{test_dataset} avg'] = avg_acc
     # this_res[f'{test_dataset} avg'] = avg_acc
-    this_df = pd.DataFrame(this_res.items(), columns=['dataset', 'accuracy']).round(4)
+    this_df = pd.DataFrame([[test_dataset, avg_acc, acc]], columns=['dataset', 'avg accuracy', 'pass accuracy']).round(4)
     this_df.to_csv(f'result/{model_name}/{test_dataset}_results.csv', index=False)
     save_data = []
     for i, item in enumerate(ds):
@@ -90,9 +89,11 @@ for test_dataset in test_datasets:
     
 
 print(res)
-df = pd.DataFrame(res.items(), columns=['dataset', 'accuracy']).round(4)
-df['3 average'] = df.iloc[:3, 1].mean(axis=0)
-df['5 average'] = df.iloc[:5, 1].mean(axis=0)
+df = pd.DataFrame([[test_dataset, avg_acc, acc] for test_dataset, (avg_acc, acc) in res.items()], columns=['dataset', 'avg accuracy', 'pass accuracy']).round(4)
+df['avg 3 average'] = df.iloc[:3, 1].mean(axis=0)
+df['avg 5 average'] = df.iloc[:5, 1].mean(axis=0)
+df['pass 3 average'] = df.iloc[:3, 2].mean(axis=0)
+df['pass 5 average'] = df.iloc[:5, 2].mean(axis=0)
 print(df)
 df.to_csv(f'result/{model_name}/results.csv', index=False)
 

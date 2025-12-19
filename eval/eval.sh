@@ -1,10 +1,10 @@
-GPUS=(0 1)
+GPUS=(0 1 2 3)
 NUM_GPUS=${#GPUS[@]}
 echo "NUM_GPUS: $NUM_GPUS"
 
-model_name_or_path="PRM-CoT/Qwen2.5-Math-7B-prm-n1-eta100-stepLen256-step500"
-model_prefix="Qwen2.5-Math-7B-prm-n1-eta100-stepLen256-step500"
-data="math500,minerva_math,olympiad_bench,aime24,amc23"
+model_name_or_path="/taiga/illinois/eng/cs/tozhang/jyao4/prm-cot/prm-cot/checkpoints/prm/Llama-3.2-3B-Instruct-numina-grpo-prm_advprm-n5-eta200-stepLen256-stepSplit-length/global_step_300/actor/huggingface"
+model_prefix="Llama-3.2-3B-Instruct-numina-grpo-prm_advprm-n5-eta200-stepLen256-stepSplit-length-step300"
+data="math500,minerva_math,olympiad_bench,amc23,aime24"
 
 for i in $(seq 0 $((NUM_GPUS - 1))); do
     CUDA_VISIBLE_DEVICES=${GPUS[$i]} python gen.py --model_name_or_path=$model_name_or_path \

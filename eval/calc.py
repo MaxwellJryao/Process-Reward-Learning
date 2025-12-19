@@ -4,16 +4,16 @@ import pandas as pd
 from tqdm import tqdm
 import verl.utils.reward_score.math_verify as math_verify
 
-metric = 'average' # 'majority_vote' or 'average' or 'pass'
+metric = 'pass' # 'majority_vote' or 'average' or 'pass'
 ds_names = ['math500', 'minerva_math', 'olympiad_bench', 'aime24', 'amc23']
 df = pd.DataFrame(columns=ds_names)
 
-for step in tqdm(range(1, 5, 1)):
+for step in tqdm(range(1, 2, 1)):
     avg_acc = 0
     step_accs = []
     for ds in ds_names:
         rewrite = False
-        file_name = f'result/Qwen2.5-Math-1.5B-raft-plusplus-numina_math_em-sample1n32-sample32-iter{step}-n8_t1.0/{ds}_outputs.json'
+        file_name = f'/taiga/illinois/eng/cs/tozhang/jyao4/prm-cot/prm-cot/eval/result/Llama-3.2-1B-Instruct-numina-grpo-prm_advorm-n5-eta0-stepLen0-stepSplit-nn-step300.bk/{ds}_outputs.json'
         try:
             with open(file_name) as f:
                 res = json.load(f)
